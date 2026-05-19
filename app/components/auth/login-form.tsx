@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useEffect, useRef } from "react"
 import { signIn } from "next-auth/react"
-import { useTranslations } from "next-intl"
+// import { useTranslations } from "next-intl"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,11 +37,10 @@ export function LoginForm({ turnstile }: LoginFormProps) {
   const [turnstileToken, setTurnstileToken] = useState("")
   const [turnstileResetCounter, setTurnstileResetCounter] = useState(0)
   const { toast } = useToast()
-  const t = useTranslations("auth.loginForm")
   const debounceRef = useRef<ReturnType<typeof setTimeout>>()
 
   const turnstileSiteKey = turnstile?.siteKey ?? ""
-  const turnstileEnabled = Boolean(turnstile?.enabled && turnstileSiteKey)
+  const turnstileEnabled = !!(turnstile?.enabled && turnstileSiteKey)
 
   // 倒计时
   useEffect(() => {
