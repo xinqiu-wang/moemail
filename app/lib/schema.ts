@@ -137,6 +137,21 @@ export const emailShares = sqliteTable('email_share', {
   tokenIdx: index('email_share_token_idx').on(table.token),
 }));
 
+export const verificationCodes = sqliteTable('verification_codes', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  email: text('email').notNull(),
+  code: text('code').notNull(),
+  type: text('type').notNull().default('register'),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  used: integer('used', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+}, (table) => ({
+  emailIdx: index('verification_codes_email_idx').on(table.email),
+  expiresAtIdx: index('verification_codes_expires_at_idx').on(table.expiresAt),
+}))
+
 export const messageShares = sqliteTable('message_share', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   messageId: text('message_id')

@@ -235,7 +235,7 @@ export const {
   },
 }))
 
-export async function register(username: string, password: string) {
+export async function register(username: string, password: string, email?: string) {
   const db = createDb()
 
   const existing = await db.query.users.findFirst({
@@ -246,12 +246,24 @@ export async function register(username: string, password: string) {
     throw new Error("用户名已存在")
   }
 
+  if (email) {
+    const existingEmail = await db.query.users.findFirst({
+      where: eq(users.email, email)
+    })
+
+    if (existingEmail) {
+      throw new Error("该邮箱已被注册")
+    }
+  }
+
   const hashedPassword = await hashPassword(password)
 
   const [user] = await db.insert(users)
     .values({
       username,
       password: hashedPassword,
+      email: email || null,
+      emailVerified: email ? new Date() : null,
     })
     .returning()
 

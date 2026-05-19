@@ -19,7 +19,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
-import { Github, Loader2, KeyRound, User2 } from "lucide-react"
+import { Github, Loader2, KeyRound, User2, Mail, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Turnstile } from "@/components/auth/turnstile"
 
@@ -36,13 +36,19 @@ interface FormErrors {
   username?: string
   password?: string
   confirmPassword?: string
+  email?: string
+  code?: string
 }
 
 export function LoginForm({ turnstile }: LoginFormProps) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [email, setEmail] = useState("")
+  const [code, setCode] = useState("")
   const [loading, setLoading] = useState(false)
+  const [sendingCode, setSendingCode] = useState(false)
+  const [codeSent, setCodeSent] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
   const [turnstileToken, setTurnstileToken] = useState("")
   const [turnstileResetCounter, setTurnstileResetCounter] = useState(0)
@@ -74,6 +80,9 @@ export function LoginForm({ turnstile }: LoginFormProps) {
     setUsername("")
     setPassword("")
     setConfirmPassword("")
+    setEmail("")
+    setCode("")
+    setCodeSent(false)
     setErrors({})
   }
 
@@ -92,14 +101,17 @@ export function LoginForm({ turnstile }: LoginFormProps) {
     return Object.keys(newErrors).length === 0
   }
 
-  const validateRegisterForm = () => {
+  const validateRegisterForm = (checkAll = true) => {
     const newErrors: FormErrors = {}
     if (!username) newErrors.username = t("errors.usernameRequired")
-    if (!password) newErrors.password = t("errors.passwordRequired")
     if (username.includes('@')) newErrors.username = t("errors.usernameInvalid")
+    if (!email) newErrors.email = "请输入邮箱"
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "邮箱格式不正确"
+    if (!password) newErrors.password = t("errors.passwordRequired")
     if (password && password.length < 8) newErrors.password = t("errors.passwordTooShort")
     if (!confirmPassword) newErrors.confirmPassword = t("errors.confirmPasswordRequired")
     if (password !== confirmPassword) newErrors.confirmPassword = t("errors.passwordMismatch")
+    if (checkAll && codeSent && !code) newErrors.code = "请输入验证码"
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -140,16 +152,79 @@ export function LoginForm({ turnstile }: LoginFormProps) {
     }
   }
 
+  const handleSendCode = async () => {
+    if (!validateRegisterForm(false)) return
+
+    setSendingCode(true)
+    try {
+      const response = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, type: "register" }),
+      })
+
+      const data = await response.json() as { error?: string; message?: string }
+
+      if (!response.ok) {
+        toast({
+          title: "发送失败",
+          description: data.error || "验证码发送失败",
+          variant: "destructive",
+        })
+        setSendingCode(false)
+        return
+      }
+
+      setCodeSent(true)
+      toast({
+        title: "验证码已发送",
+        description: data.message || "请查看您的邮箱",
+      })
+    } catch {
+      toast({
+        title: "发送失败",
+        description: "网络错误，请稍后重试",
+        variant: "destructive",
+      })
+    }
+    setSendingCode(false)
+  }
+
   const handleRegister = async () => {
-    if (!validateRegisterForm()) return
+    if (!validateRegisterForm(true)) return
+    if (!code) {
+      setErrors(prev => ({ ...prev, code: "请输入验证码" }))
+      return
+    }
     if (!ensureTurnstileSolved()) return
 
     setLoading(true)
     try {
+      // 验证验证码
+      const verifyResponse = await fetch("/api/auth/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code, type: "register" }),
+      })
+
+      const verifyData = await verifyResponse.json() as { error?: string }
+
+      if (!verifyResponse.ok) {
+        toast({
+          title: "验证失败",
+          description: verifyData.error || "验证码错误",
+          variant: "destructive",
+        })
+        setLoading(false)
+        resetTurnstile()
+        return
+      }
+
+      // 注册
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, turnstileToken }),
+        body: JSON.stringify({ username, password, email }),
       })
 
       const data = await response.json() as { error?: string }
@@ -165,7 +240,7 @@ export function LoginForm({ turnstile }: LoginFormProps) {
         return
       }
 
-      // 注册成功后自动登录
+      // 自动登录
       const result = await signIn("credentials", {
         username,
         password,
@@ -198,10 +273,6 @@ export function LoginForm({ turnstile }: LoginFormProps) {
 
   const handleGithubLogin = () => {
     signIn("github", { callbackUrl: "/" })
-  }
-
-  const handleGoogleLogin = () => {
-    signIn("google", { callbackUrl: "/" })
   }
 
   return (
@@ -301,32 +372,6 @@ export function LoginForm({ turnstile }: LoginFormProps) {
                   <Github className="mr-2 h-4 w-4" />
                   {t("actions.githubLogin")}
                 </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleGoogleLogin}
-                >
-                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                  {t("actions.googleLogin")}
-                </Button>
               </div>
             </TabsContent>
             <TabsContent value="register" className="space-y-4 mt-0">
@@ -347,13 +392,39 @@ export function LoginForm({ turnstile }: LoginFormProps) {
                         setUsername(e.target.value)
                         setErrors({})
                       }}
-                      disabled={loading}
+                      disabled={loading || sendingCode}
                     />
                   </div>
                   {errors.username && (
                     <p className="text-xs text-destructive">{errors.username}</p>
                   )}
                 </div>
+
+                <div className="space-y-1.5">
+                  <div className="relative">
+                    <div className="absolute left-2.5 top-2 text-muted-foreground">
+                      <Mail className="h-5 w-5" />
+                    </div>
+                    <Input
+                      className={cn(
+                        "h-9 pl-9 pr-3",
+                        errors.email && "border-destructive focus-visible:ring-destructive"
+                      )}
+                      type="email"
+                      placeholder="邮箱地址"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value)
+                        setErrors({})
+                      }}
+                      disabled={loading || sendingCode || codeSent}
+                    />
+                  </div>
+                  {errors.email && (
+                    <p className="text-xs text-destructive">{errors.email}</p>
+                  )}
+                </div>
+
                 <div className="space-y-1.5">
                   <div className="relative">
                     <div className="absolute left-2.5 top-2 text-muted-foreground">
@@ -371,13 +442,14 @@ export function LoginForm({ turnstile }: LoginFormProps) {
                         setPassword(e.target.value)
                         setErrors({})
                       }}
-                      disabled={loading}
+                      disabled={loading || sendingCode}
                     />
                   </div>
                   {errors.password && (
                     <p className="text-xs text-destructive">{errors.password}</p>
                   )}
                 </div>
+
                 <div className="space-y-1.5">
                   <div className="relative">
                     <div className="absolute left-2.5 top-2 text-muted-foreground">
@@ -395,30 +467,68 @@ export function LoginForm({ turnstile }: LoginFormProps) {
                         setConfirmPassword(e.target.value)
                         setErrors({})
                       }}
-                      disabled={loading}
+                      disabled={loading || sendingCode}
                     />
                   </div>
                   {errors.confirmPassword && (
                     <p className="text-xs text-destructive">{errors.confirmPassword}</p>
                   )}
                 </div>
+
+                {codeSent && (
+                  <div className="space-y-1.5">
+                    <div className="relative">
+                      <div className="absolute left-2.5 top-2 text-muted-foreground">
+                        <ShieldCheck className="h-5 w-5" />
+                      </div>
+                      <Input
+                        className={cn(
+                          "h-9 pl-9 pr-3 text-center tracking-[8px] font-mono text-lg",
+                          errors.code && "border-destructive focus-visible:ring-destructive"
+                        )}
+                        placeholder="输入验证码"
+                        value={code}
+                        onChange={(e) => {
+                          setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                          setErrors({})
+                        }}
+                        disabled={loading}
+                        maxLength={6}
+                      />
+                    </div>
+                    {errors.code && (
+                      <p className="text-xs text-destructive">{errors.code}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3 pt-1">
-                <Button
-                  className="w-full"
-                  onClick={handleRegister}
-                  disabled={loading}
-                >
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {t("actions.register")}
-                </Button>
+                {!codeSent ? (
+                  <Button
+                    className="w-full"
+                    onClick={handleSendCode}
+                    disabled={loading || sendingCode}
+                  >
+                    {sendingCode && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {sendingCode ? "发送中..." : "发送验证码"}
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full"
+                    onClick={handleRegister}
+                    disabled={loading}
+                  >
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {t("actions.register")}
+                  </Button>
+                )}
               </div>
             </TabsContent>
           </div>
         </Tabs>
         {turnstileEnabled && turnstileSiteKey && (
-          <div className={cn("space-y-2", activeTab === "login" ? "mt-4" : "")}>
+          <div className={cn("space-y-2", activeTab === "login" ? "mt-4" : "mt-3")}>
             <Turnstile
               siteKey={turnstileSiteKey}
               onVerify={setTurnstileToken}
