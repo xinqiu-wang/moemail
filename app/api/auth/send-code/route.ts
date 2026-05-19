@@ -97,11 +97,15 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       const errorData = await response.json() as { message?: string }
+      const errorMsg = errorData?.message || ''
       console.error('Resend API error:', errorData)
-      return NextResponse.json(
-        { error: "验证码发送失败，请稍后重试" },
-        { status: 500 }
-      )
+      let userMsg = "验证码发送失败，请稍后重试"
+      if (errorMsg.includes('not verified') || errorMsg.includes('domain')) {
+        userMsg = "发件域名未验证，请在 Resend 后台添加并验证域名 " + fromDomain
+      } else if (errorMsg.includes('rate')) {
+        userMsg = "发送太频繁，请稍后再试"
+      }
+      return NextResponse.json({ error: userMsg }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, message: "验证码已发送到您的邮箱" })
