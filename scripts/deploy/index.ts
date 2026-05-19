@@ -483,8 +483,8 @@ const main = async () => {
     migrateDatabase();
     await checkAndCreateKVNamespace();
     await checkAndCreatePages();
-    pushPagesSecret();
     deployPages();
+    pushPagesSecret();
     deployEmailWorker();
     deployCleanupWorker();
 
