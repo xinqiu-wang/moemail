@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getRequestContext } from "@cloudflare/next-on-pages"
 import { createDb } from "@/lib/db"
 import { verificationCodes, users } from "@/lib/schema"
-import { auth, comparePassword, hashPassword } from "@/lib/auth"
+import { auth } from "@/lib/auth"
 import { eq, and, gt, sql } from "drizzle-orm"
 
 export const runtime = "edge"
