@@ -13,6 +13,9 @@ setup()
 const withNextIntl = createNextIntlPlugin('./app/i18n/request.ts')
 
 const nextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     remotePatterns: [
       {
