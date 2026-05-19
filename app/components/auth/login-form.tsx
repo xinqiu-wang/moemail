@@ -37,7 +37,7 @@ export function LoginForm({ turnstile }: LoginFormProps) {
   const [turnstileToken, setTurnstileToken] = useState("")
   const [turnstileResetCounter, setTurnstileResetCounter] = useState(0)
   const { toast } = useToast()
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const turnstileSiteKey = turnstile?.siteKey ?? ""
   const turnstileEnabled = !!(turnstile?.enabled && turnstileSiteKey)
